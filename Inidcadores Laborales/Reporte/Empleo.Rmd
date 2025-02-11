@@ -1,0 +1,582 @@
+---
+title: "Análisis de los Indicadores globales del mercado laboral en Bolivia, 2023"
+author: "David Ayala"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes 
+    toc_float: yes 
+    number_sections: yes 
+    code_folding: hide 
+    fig_width: 14
+    fig_height: 8
+    linestretch: 1.5
+---
+# Introducción
+
+En este documento se analizan algunas variables del mercado laboral en Bolivia; para este propósito se empleó información de la encuesta continua de empleo del Instituto Nacional de Estadística del Estado Plurinacional de Bolivia [(INE, 2023)](https://anda.ine.gob.bo/index.php/catalog/ENCUESTAS).
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Instalar y habilitar librerías
+#install.packages(c("pacman","haven","ggplot2","magrittr","tidyverse","dplyr","sf","tisyr",
+#                   "stringr","car","broom","sjlabelled","readr","epikit","ggrepel"))
+
+pacman::p_load(
+  haven,#Importar datos sav, dta, etc
+  ggplot2,#Visualización de Datos
+  magrittr,#pip
+  tidyverse,
+  dplyr,
+  sf,#Para mapas
+  tidyr,
+  stringr,
+  car,
+  broom,
+  sjlabelled,#Manejo de etiquetas dta, sav.
+  readr,
+  gghighlight,#Resaltar una categoría en específico en el plot.
+  ggsankey,
+  flextable, #tabla
+  janitor,#Tablas
+  epikit,#Para categorías numéricas
+  ggrepel)#Etiquetas geom_text_grepel
+
+#Theme
+them_plot1 <- function(){
+  theme_bw() + 
+    theme(legend.position = 'top',
+          legend.justification = "left",
+          legend.location = "plot",
+          plot.title = element_text(color="#998ec3", face="bold", size=18),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(color="gray12"),
+          axis.text.x = element_text(face="bold", color="gray12",size=12),
+          axis.text.y = element_blank(),
+          axis.ticks.length.y = margin(0),
+          axis.title = element_blank(),
+          legend.title =element_blank(),
+          legend.text =element_text(size=14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+}
+##Colores son 11 categorias
+new_colors <- c("#f1a340","#998ec3","#8DD3C7", "#FFFFB3","#FB8072", "#80B1D3", "#B3DE69", "#FCCDE5","#D9D9D9","#BC80BD","#CCEBC5")
+```
+
+## Importar las Base de Datos
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Cargar datos
+setwd("~/Git_Portafolio/Portafolio/Inidcadores Laborales/Datos")
+EE_1T <- read_sav("ECE_1T2023.sav")
+EE_2T <- read_sav("ECE_2T2023.sav")
+EE_3T <- read_sav("ECE_3T2023.sav")
+EE_4T <- read_sav("ECE_4T2023.sav")
+
+#Detalles de la muestra
+list(EE_1T=dim(EE_1T),
+     EE_2T=dim(EE_2T),
+     EE_3T=dim(EE_3T),
+     EE_4T=dim(EE_4T))
+```
+
+
+### Anexar las Muestras
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Anexar las base de datos (ECE)
+ECE_23 <- EE_1T%>%
+  bind_rows(.,EE_2T)%>%
+  bind_rows(.,EE_3T)%>%
+  bind_rows(.,EE_4T)
+
+ECE_23 <- ECE_23 %>% 
+  rename(Sexo=s1_02,
+         Edad=s1_03a,
+         Rel_Par=s1_05)
+
+dim(ECE_23)
+```
+
+### Porcentaje de Observaciones por Trimestre 
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Detalles de la muestra (Frecuencia relativa)
+ECE_23 %>% 
+  mutate(trim=as_label(trim)) %>%
+  tabyl(trim) %>% 
+  filter(str_detect(trim, "2023")) %>% 
+  ggplot(aes(x=trim, y=percent, fill=trim))+
+  geom_bar( stat = "identity",position = "identity", width=0.7,just = 0.5, show.legend = F)+
+  theme_classic()+
+  scale_y_continuous(expand = c(0,0,0,0),limits = c(0,0.3))+
+  geom_text(aes(label=paste(round(percent*100,2),"%")),	vjust=-0.3,	size=14, size.unit = "pt")+
+  scale_fill_manual(values = c("#122e68","#7a9add",	"#BDBDBD","#c4be91"))+
+  labs(title="Frecuncia Relativa por Trimestre de las ECE, 2023", subtitle = "(%)")+
+  them_plot1()
+
+```
+
+# Variables Laborales
+
+Antes de continuar, es necesario definir los indicadores laborales estudiados.
+
+1. __Población en Edad de Trabajar (PET)__:  Población comprendida según el (INE, 2023), por personas mayores de 14 años de edad.
+
+2.  __La Población Economicamente Activa(PEA)__: Se conforma por la población ocupada y desocupada.
+
+3. __La poblacion Ocupada(PO)__: Corresponde al conjunto de personas de 14 años o más de edad que trabajan en una actividad económica (sea o no remunerado). 
+
+4. __La Población Desocupada (PD)__: Son las personas de 14 años o más que, en la semana de referencia: no estaban ocupadas, llevaron a cabo actividades de búsqueda de trabajo en las últimas cuatro (4) semanas y estaban disponibles para trabajar.
+
+5. __Tasa Global de Participación (TGP)__: Relación de la Población Económicamente Activa (PEA) entre la Población en Edad de Trabajar (PET) que mide la proporción de participación en el mercado laboral respecto al total de población que se encuentra en edad de trabajo.
+
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+ECE_23 %>% 
+  filter(!is.na(condact)) %>% 
+  mutate(trim=as_label(trim),
+         condact=as_label(condact)) %>% 
+  group_by(trim,condact) %>% 
+  tally() %>%  
+  pivot_wider(names_from = condact, values_from = n) %>%  
+  rename(PO=Ocupado) %>% 
+  mutate(
+    PD=round(sum(Cesante,Aspirante),2),
+    PET=round(sum(PO,PD,Temporal,Permanente),2),
+    PEA=round(sum(PO,PD),2),
+    "TGP (%)"=round(PEA/PET*100,2),
+    "TD (%)"=round(PD/PEA*100,2),
+    "TO (%)"=round(PO/PEA*100,2)
+    ) %>% 
+  select(trim,PET,PEA, everything()) %>% 
+  select(-c(Cesante:Permanente)) %>% 
+  pivot_longer(PET:`TO (%)`, names_to = "Categoría",values_to = "n") %>% 
+  pivot_wider(names_from = trim, values_from = n) %>%  
+  qflextable()
+```
+
+## Población por Condición de Actividad y Edad
+
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+ECE_23%>%
+  mutate(
+    condact=as_label(condact),
+    edad_cat=age_categories(Edad,
+                            breakers=c(0,14,20,30,40,50,60,70)))%>% 
+  tabyl(condact, edad_cat)%>%
+  adorn_totals(where =c("row","col")) %>% 
+  qflextable()
+  
+```
+
+# Indicadores laborales por categorías 
+
+## Tasa Global de Participación por Sexo 
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+ECE_23%>%
+  filter(!is.na(condact)) %>% 
+  mutate(trim=as_label(trim),
+         condact=as_label(condact),
+         Sexo=as_label(Sexo)) %>% 
+  group_by(trim, Sexo, condact) %>% 
+  tally() %>% 
+  pivot_wider(names_from = condact, values_from = n) %>% 
+  mutate(Desocupado=Cesante+Aspirante,
+         PEA=Ocupado+Desocupado) %>% 
+  select(-c(Cesante, Aspirante,Ocupado,Desocupado)) %>% 
+  adorn_totals(where = "col")%>%
+  adorn_percentages()%>%
+  mutate(yinf=PEA-0.006,
+         ysup=PEA+0.006) %>% 
+  ggplot(aes(x=trim,y=PEA*100, group=Sexo, color=Sexo))+
+  geom_ribbon(aes(ymin=yinf*100, ymax=ysup*100,fill=Sexo), alpha=0.25,colour=NA, show.legend = F)+
+  geom_point(size=4, aes(shape=Sexo),show.legend = F)+
+  geom_smooth(size=1.5, se=FALSE, show.legend = F)+
+  scale_y_continuous(limits = c(60,90),expand = c(.05, 0, .2, 0))+
+  annotate(geom = "text",x=4.2,y=c(72.3,83.6), label=c("Mujer","Hombre"), fontface="bold",color=c("#f1a340","#998ec3"), size=6)+
+  labs(title = "Tasa Global de Participación por Sexo, 2023", subtitle = "(%)")+
+  geom_text(aes(label=paste0(round(PEA*100, 2),"%")),	vjust=-0.7,	size=14, size.unit = "pt", show.legend = F)+
+  coord_cartesian(expand = 0.003)+
+  scale_shape_manual(values=c(16,18))+
+  scale_color_manual(labels = c("Hombre","Mujer"),values = c("#998ec3","#f1a340"))+
+  scale_fill_manual(values = c("#998ec3","#f1a340"))+
+  them_plot1()
+```
+
+## Tasa Global de Participación por Sexo, Según Nivel Educativo Alcanzado 
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+ECE_23%>%
+  filter(!is.na(condact)) %>% 
+  mutate(niv_ed=as_label(niv_ed),
+         Sexo=as_label(Sexo),
+         condact=as_label(condact))%>%
+  group_by(niv_ed, Sexo, condact) %>% 
+  tally()%>%
+  pivot_wider(names_from =condact, values_from = n) %>% 
+  mutate(PEA=sum(c(Ocupado, Cesante, Aspirante), na.rm = T)) %>% #Suma por columnas
+  select(-c(Ocupado, Cesante, Aspirante))%>%
+  adorn_totals(where = "col") %>% 
+  adorn_percentages(denominator = "row") %>% 
+  ggplot(aes(x=niv_ed,y=PEA*100, fill=Sexo))+
+  geom_bar(position=position_dodge2(width = 1, preserve = "single"),stat = "identity", just = .5)+
+  coord_cartesian(expand=FALSE,ylim = c(20,100))+
+  geom_text(aes(label=paste0(round(PEA*100, 2),"%"),colour=Sexo), vjust=-0.3, hjust="center",	size=14, size.unit = "pt", position = position_dodge2(width = 1, preserve = "single"), show.legend = F)+#Etiquetas
+  scale_fill_manual(values = c("#998ec3","#f1a340"), labels=c("Hombre", "Mujer"))+
+  scale_colour_manual(values = c("#998ec3","#f1a340"))+#Color de las Etiquetas
+  labs(title ="Tasa Global de Participación por Sexo, según Nivel Educativo Alcanzado, 2023", subtitle = "(%)" )+
+  them_plot1()
+
+```
+
+## Tasa de Global de Participación por Sexo, Según Rangos De Edad
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+
+ECE_23 %>% 
+  filter(!is.na(condact)) %>% 
+  mutate(condact=as_label(condact),
+         Sexo=as_label(Sexo),
+         Edad_Cat=case_when(
+           Edad==14~"14 años",
+           Edad>14 & Edad<=19~"15 a 19\naños",
+           Edad>19 & Edad<=24~"20 a 24\naños",
+           Edad>24 & Edad<=29~"25 a 29\naños",
+           Edad>29 & Edad<=34~"30 a 34\naños",
+           Edad>34 & Edad<=39~"35 a 39\naños",
+           Edad>39 & Edad<=44~"40 a 44\naños",
+           Edad>44 & Edad<=49~"45 a 49\naños",
+           Edad>49 & Edad<=54~"50 a 54\naños",
+           Edad>54 & Edad<=59~"55 a 59\naños",
+           Edad>59 & Edad<=64~"60 a 64\naños",
+           TRUE~"Más de 65\naños"
+         ),
+         Edad_Cat = factor(
+           Edad_Cat,
+           level = c("14 años", "15 a 19\naños","20 a 24\naños", "25 a 29\naños",
+                     "30 a 34\naños","35 a 39\naños","40 a 44\naños","45 a 49\naños",
+                     "50 a 54\naños","55 a 59\naños","60 a 64\naños","Más de 65\naños")
+         )) %>% 
+  group_by(condact, Edad_Cat, Sexo)%>%
+  tally() %>% 
+  pivot_wider(names_from = condact,values_from = n) %>% 
+  mutate(PEA=sum(c(Ocupado, Cesante, Aspirante), na.rm = T)) %>% 
+  select(-c(Ocupado, Cesante, Aspirante)) %>% 
+  adorn_totals(where = "col") %>% 
+  adorn_percentages(denominator = "row") %>%
+  as_data_frame()  %>% 
+  ggplot(aes(x=Edad_Cat,y=PEA*100,group=Sexo, color=Sexo))+
+  geom_point(shape=18, size=3.5)+
+  geom_path(size=1.5,linetype="dotted",stat = "identity")+
+  scale_color_manual(values = c("#998ec3","#f1a340"), label=c("Hombre","Mujer"))+
+  labs(title = "Tasa Global de Participación por Sexo, Según Rangos de Edad, 2023",subtitle = "(%)")+
+  coord_cartesian(ylim = c(50,110))+
+  #Etiquetas por Grupo
+  geom_text(aes(label=if_else(Sexo=="1. Hombre" & Edad_Cat!="14 años",paste(round(PEA*100, 1),"%"),NA), vjust=-1.3, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+#Las etiq
+  geom_text(aes(label=if_else(Sexo=="2. Mujer" & Edad_Cat!="14 años",paste(round(PEA*100, 1),"%"),NA),  vjust = 2, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+
+  geom_text(aes(label=if_else(Sexo=="1. Hombre"& Edad_Cat=="14 años",paste(round(PEA*100, 1),"%"),NA),  vjust =2, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+
+  geom_text(aes(label=if_else(Sexo=="2. Mujer"& Edad_Cat=="14 años",paste(round(PEA*100, 1),"%"),NA),  vjust =-1, hjust=0.3), size=14, size.unit = "pt",show.legend = F)+
+  theme(legend.position='top', #Ubicación de legenda
+        legend.justification='left',
+        legend.direction='horizontal',
+        legend.title=element_blank())+
+  geom_vline(xintercept = c(1,5,11), linetype="dotted")+
+  annotate(geom="text", x=c(3,7,12), y=60, label=c("Jóvenes","Adultos", "Adultos Mayores"),
+           color="black", fontface="bold")+
+  them_plot1()
+
+```
+
+# Tasa de  Ocupación y Desocupación
+
+## Tasa de Ocupación por Sexo
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+ECE_23%>% 
+  filter(!is.na(condact)) %>% 
+  mutate(trim=as_label(trim),
+         condact=as_label(condact),
+         Sexo=as_label(Sexo)) %>% 
+  group_by(condact, trim, Sexo)%>% 
+  tally()%>%
+  pivot_wider(names_from = condact, values_from = n)%>%
+  mutate(Desocupado=sum(c(Cesante,Aspirante), na.rm = T)) %>% 
+  select(-c(Temporal,Permanente,Cesante,Aspirante))%>%
+  adorn_totals(where = "col")%>%
+  adorn_percentages(denominator = "row")%>%
+  mutate(ysup=Ocupado+0.001,
+         yinf=Ocupado-0.001) %>% 
+  ggplot(aes(x=trim,y=Ocupado, group=Sexo, color=Sexo))+
+  geom_point(size=3)+
+  geom_path(size=1.3)+
+  geom_ribbon(aes(ymax=ysup, ymin=yinf, fill=Sexo), alpha=0.25, colour=NA, show.legend = F)+
+  scale_y_continuous(limits = c(0.9,.95), n.breaks = 5, labels = scales::percent)+
+  labs(x=NULL,y=NULL, title = "Tasa de Ocupación por Sexo, 2023",subtitle = "(%)")+
+   geom_text(aes(label=if_else(Sexo=="1. Hombre",paste(round(Ocupado*100, 2),"%"),NA), vjust=-1.3, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+
+   geom_text(aes(label=if_else(Sexo=="2. Mujer" ,paste(round(Ocupado*100, 2),"%"),NA), vjust=1.3, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+
+  scale_color_manual(values = c("#998ec3","#f1a340"),label=c("Hombre","Mujer"))+
+  scale_fill_manual(values=c("#998ec3","#f1a340"))+
+  them_plot1()
+```
+
+## Tasa de Desocupación por Sexo
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Población Desocupada
+ECE_23%>% 
+  filter(!is.na(condact)) %>% 
+  mutate(trim=as_label(trim),
+         condact=as_label(condact),
+         Sexo=as_label(Sexo)) %>% 
+  group_by(condact, trim, Sexo)%>% 
+  tally()%>%#Factor de Expansión
+  pivot_wider(names_from = condact, values_from = n)%>%
+  mutate(Desocupado=sum(c(Cesante,Aspirante), na.rm = T)) %>% 
+  select(-c(Temporal,Permanente,Cesante,Aspirante))%>%
+  adorn_totals(where = "col")%>%
+  adorn_percentages(denominator = "row")%>%
+  mutate(ysup=Desocupado+0.003,
+         yinf=Desocupado-0.003) %>% 
+  ggplot(aes(x=trim,y=Desocupado, group=Sexo, color=Sexo))+
+  geom_point(size=3)+
+  geom_path(size=1.3)+
+  geom_ribbon(aes(ymax=ysup, ymin=yinf, fill=Sexo), alpha=0.25, colour=NA, show.legend = F)+
+  scale_y_continuous(limits = c(0,0.12),labels = scales::percent)+
+  labs(x=NULL,y=NULL, title = "Tasa de Desocupación por Sexo, 2023",subtitle = "(%)")+
+  geom_text(aes(label=if_else(Sexo=="1. Hombre",paste(round(Desocupado*100, 2),"%"),NA), vjust=1.3, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+
+   geom_text(aes(label=if_else(Sexo=="2. Mujer" ,paste(round(Desocupado*100, 2),"%"),NA), vjust=-1.3, hjust=0.3),size=14, size.unit = "pt", show.legend = F)+
+  scale_color_manual(values = c("#998ec3","#f1a340"),label=c("Hombre","Mujer"))+
+  scale_fill_manual(values=c("#998ec3","#f1a340"))+
+  them_plot1()
+
+
+```
+
+## Tasa de Ocupación por Departementos 
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Archivo shapefile
+##https://gadm.org/download_country.html
+Dat_Map <- read_sf("~/Git_Portafolio/Portafolio/Inidcadores Laborales/Datos/Datos de Bolivia map/gadm41_BOL_1.shp")
+
+Tas_O_Dep <- ECE_23 %>% 
+  filter(!is.na(condact)) %>% 
+  mutate_at(vars(depto, condact), as_label) %>% 
+  group_by(depto, condact) %>% 
+  tally() %>% 
+  pivot_wider(names_from = condact, values_from = n) %>% 
+  mutate(Desempleo=sum(c(Cesante,Aspirante), na.rm=T)) %>% 
+  select(depto,Desempleo, Ocupado) %>% 
+  adorn_totals(where = "col") %>% 
+  adorn_percentages(denominator = "row") %>% 
+  as_tibble()
+
+#Merge
+Dat_Map%>%
+  merge(Tas_O_Dep[,-4],by.x="NAME_1", by.y="depto", all=TRUE) %>% 
+  #Crear un punto Medio "centroides"
+  mutate(centroid = map(geometry, st_centroid),
+         coords = map(centroid, st_coordinates), #Coord.Punto medio
+         coords_x = map_dbl(coords, 1), 
+         coords_y = map_dbl(coords, 2),
+         label_pe=paste0(NAME_1,"\n",round(Ocupado*100,2),"%")) %>%  
+  ggplot(aes(fill=NAME_1)) +
+  geom_sf(show.legend = F)+
+  geom_text(mapping = aes(coords_x, coords_y, label = label_pe),size=14, size.unit = "pt",)+
+  scale_fill_manual(values = new_colors)+
+  theme_classic()+
+  labs(title = "Tasa de Ocupación por Departamento, 2023", subtitle = "(%)")+
+  theme(
+    #Eliminamos los detalles de los ejes
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text = element_blank(),
+    axis.line = element_blank(),
+    plot.title = element_text(face="bold", size=18)
+  )
+```
+
+# Población Ocupada
+
+## Participación de la Población Ocupada Según Grupo Ocupacional
+
+Las categorías de otras ramas de actividad se extraen del informe de la encuesta continua de empleo, 2023. 
+
+Está compuesta por: Servicio de organismos extraterritoriales; explotación de minas y canteras; suministro de electricidad, gas, vapor y aire acondicionado; suministro de agua, evac. de aguas residuales, gestión de desechos; informaciones y comunicaciones; intermediación financiera y seguros; actividades inmobiliarias; servicios profesionales y técnicos; actividades de servicios administrativos y de apoyo; servicios de salud y asistencia social; actividades artísticas, de entretenimiento y recreativas; otras actividades de servicios; actividades de hogares privados; servicio de organismos extraterritoriales.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Manejo de Texto
+text <- c("Servicio de Organismos Extraterritoriales; Explotación de minas y canteras; Suministro de electricidad, gas, vapor y 
+aire acondicionado; Suministro de agua, evac. de aguas residuales, gestión de desechos; Informaciones y comunicaciones; Intermediación financiera y 
+seguros; Actividades inmobiliarias; Servicios profesionales y técnicos; Actividades de servicios administrativos y de apoyo; Servicios de salud y asistencia social; 
+Actividades artísticas, entretenimiento y recreativas; Otras actividades de servicios; Actividades de hogares privados; Servicio de organismos extraterritoriales.")
+
+Categ <- text %>%str_split(pattern = ";") %>% #Dividimos el texto
+  unlist() %>% #Transformar Lista a vector
+  as_tibble() %>% 
+  rename("Categoría"=value) %>% 
+  mutate(Categoría=str_to_sentence(trimws(ifelse(
+    str_detect(Categoría, "\n"),
+    gsub("\n", "",Categoría), Categoría))))#Convertir a titulo y eliminar espacios
+
+#Gráfico
+ECE_23 %>%
+  filter(!is.na(condact)) %>% 
+  mutate(caeb_op=str_to_sentence(trimws(as_label(caeb_op))),
+         condact=as_label(condact),
+         Act_Eco=case_when(
+           caeb_op %in% Categ$Categoría~"Otras ramas de actividad",
+           is.na(caeb_op)~NA,
+           TRUE~caeb_op)) %>% 
+  group_by(Act_Eco, condact) %>% 
+  tally() %>% 
+  filter(condact=="Ocupado") %>%  
+  adorn_percentages(denominator = "col") %>%
+  ggplot(aes(x=fct_reorder(Act_Eco, n, .desc = F), y=n))+#Ordenamos los valores fct
+  geom_bar(stat = "identity", fill= "#f1a340")+
+  scale_y_continuous(limits = c(0,0.27), n.breaks = 5, labels =scales::percent)+  
+  coord_flip(expand = F)+
+  labs(title = "Parcipación de la población ocupada Según Grupo Ocupacional, 2023", subtitle = "(%)", x=NULL, y=NULL)+
+  geom_text(aes(label=paste0(round(n*100, 2),"%")), vjust=-1, color="#f1a340",size=14, size.unit = "pt", angle=270)+
+  gghighlight(Act_Eco== "Venta por mayor y menor, reparación de automotores", use_direct_label = F)+
+  theme_minimal() +
+  theme(
+    legend.position = 'top',
+    legend.justification = "left",
+    legend.location = "plot",
+    plot.title = element_text(color="#998ec3", face="bold", size=18),
+    plot.title.position = "plot",
+    axis.text.x = element_text( color="gray12",size=14),
+    axis.text.y = element_text( color="gray12",size=14),
+    axis.title = element_blank(),
+    legend.title =element_blank(),
+    legend.text =element_text(size=14))
+```
+
+## Cambio en la Participación de la Población Ocupada, Según Grupo Ocupacional en el Año 
+
+```{r}
+ECE_23 %>% 
+  mutate(trim=as_label(trim),
+         caeb_op=str_to_sentence(trimws(as_label(caeb_op))),
+         condact=as_label(condact),
+         Act_Eco=case_when(
+           caeb_op %in% Categ$Categoría~"Otras ramas de actividad",
+           is.na(caeb_op)~NA,
+           TRUE~caeb_op)) %>%  
+  group_by(trim, condact,Act_Eco) %>% 
+  tally() %>% 
+  filter(condact=="Ocupado") %>% 
+  pivot_wider(names_from = trim, values_from = n) %>% 
+  adorn_percentages(denominator = "col") %>% 
+  ggplot()+
+  geom_segment(aes(x=reorder(Act_Eco,`4t-2023`),
+                   xend=Act_Eco, y=`1t-2023`, yend=`4t-2023`),
+               color="grey", size=1.3)+
+  geom_point(aes(x=Act_Eco,y=`1t-2023`, color="1t-2023"),size=3)+
+  geom_point(aes(x=Act_Eco,y=`4t-2023`,color="4t-2023"), size=3)+
+  scale_y_continuous(limits = c(0,.25),  n.breaks = 5, labels =scales::percent )+
+  coord_flip()+
+  scale_color_manual(values = c(`1t-2023` = "#f1a340",
+                                `4t-2023`= "#998ec3"))+
+  labs(color="Trimestre",x="",y="Participación", title = "Participación de la Población Ocupada, Según Grupo Ocupacional,\nal Inicio y Final de Año, 2023")+
+  theme_minimal() +
+  theme(
+    legend.position = 'top',
+    legend.justification = "left",
+    legend.location = "plot",
+    plot.title = element_text(color="#998ec3", face="bold", size=18),
+    plot.title.position = "plot",
+    plot.subtitle = element_text(color="gray12"),
+    axis.text.x = element_text( color="gray12",size=14),
+    axis.text.y = element_text( color="gray12",size=14),
+    axis.title = element_blank(),
+    legend.title =element_blank(),
+    legend.text =element_text(size=14))
+```
+
+## Distribución de la Población Ocupada, Según Etnicidad y Grupo Ocupacional
+
+```{r}
+#Data
+Dta_sank <- ECE_23 %>%
+  filter(condact==1) %>% #Ocupados
+  mutate(caeb_op=str_to_sentence(trimws(as_label(caeb_op))),
+         Etnic=case_when(
+           s1_17==1~"Indigena",
+           s1_17==2~"No Indigena",
+           TRUE~NA),
+         Act_Eco=case_when(
+           caeb_op %in% Categ$Categoría~"Otras ramas de actividad",
+           is.na(caeb_op)~NA,
+           TRUE~caeb_op)) %>% select(Act_Eco,Etnic)%>%
+  na.omit() %>% 
+  make_long(Etnic,Act_Eco)
+
+#Gráfico de sankey
+
+##Plot
+Dta_sank %>% 
+  ggplot(aes(x = x
+              , next_x = next_x
+              , node = node
+              , next_node = next_node
+              , fill = factor(node),
+              label=node))+
+  geom_sankey(flow.alpha = 0.5, show.legend = F)+
+  geom_sankey_label( colour="gray12",fill=NA, 
+                    hjust = "left", size=5)+
+  scale_x_discrete(labels=c("Etnicidad", "Actividad\nEconómica"))+
+  labs(title="Digrama de Sankey de la Población Ocupada, según Etnicidad y Grupo Ocupacional, 2023", x=NULL)+
+   scale_fill_manual(values = new_colors)+
+  theme_sankey(base_size = 16) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(color = "#998ec3", face="bold", size=16))
+```
+
+
+
+```{r include=FALSE}
+Ind_An <- ECE_23 %>% 
+  filter(!is.na(condact)) %>% 
+  mutate(
+         condact=as_label(condact)) %>% 
+  group_by(condact) %>% 
+  tally() %>%  
+  pivot_wider(names_from = condact, values_from = n) %>%  
+  rename(PO=Ocupado) %>% 
+  mutate(
+    PD=round(sum(Cesante,Aspirante),2),
+    PET=round(sum(PO,PD,Temporal,Permanente),2),
+    PEA=round(sum(PO,PD),2),
+    "TGP (%)"=round(PEA/PET*100,2),
+    "TD (%)"=round(PD/PEA*100,2),
+    "TO (%)"=round(PO/PEA*100,2)
+    )
+```
+
+# Conclusión
+
+De acuerdo al análisis, se encontró que:
+
+* La Tasa Global de Participación (TGP) es mayor en hombres que en mujeres; la diferencia en promedio en el 2023 es de 10 pp.
+
+* La tasa de desocupación  en el año 2023 es de `r Ind_An[1,10]`%.
+
+* La Paz es el departamento con la mayor tasa de ocupación.
+
+* El sector comercio es de mayor empleabilidad dado que ocupa el 21.06% de la población ocupada en Bolivia, seguido por el sector agrícola.
+
+*  El sector de Comercio junto con el sector de Transporte y Almacenamiento son los sectores con mayor cambio negativo durante un año, dado que disminuye la participación de la población ocupada durante el año. Mientras que el sector manufacturero y otras ramas de actividad son los que presentan un cambio positivo dado que la participación de la población ocupada es mayor al final del año.
+
+* Las personas que se declararon indígenas en su mayoría se encuentran ocupadas en actividades agrícolas y comercio. Mientras que los que no pertenecen a ninguna etnia originaria son personas que se encuentran ocupadas también en comercio, además de otras ramas de actividad.
+
+
+
+
+
+
