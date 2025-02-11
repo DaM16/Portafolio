@@ -1,0 +1,586 @@
+---
+title: "Pronóstico de la Inflación en Bolivia"
+author: "David Ayala Muñoz"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    toc: yes 
+    toc_float: yes 
+    number_sections: yes 
+    code_folding: hide 
+    fig_width: 12
+    fig_height: 8
+    linestretch: 1.5
+    fontsize: 11pt
+---
+
+# Introducción
+
+En este documento se realiza el pronóstico de la inflación para Bolivia para el año 2025, aplicando la metodología de Box-Jenkins (1976), para identificar un modelo autorregresivo integrado de media móvil ARIMA(p,d,q).
+
+La Metodología de Box-Jenkins, consiste en:
+
+1. Identificación: Consiste en identificar los valores (p,d,q), mediante los gráficos de la Función de autocorrelación (FAC) para identificar los procesos MA(q)  y Función de autocorrelación parcial (FACP) para identificar los procesos AR(p).
+
+2. Estimación: Consiste en estimar los parámetros o coeficientes del modelo.
+
+3. Verificación o diagnóstico:Consiste en verificar que los residuos sean ruidos blanco.
+
+4. Pronóstico: Si se cumplen los tres pasos previos, se puede utilizar el módulo para fines de pronóstico. 
+
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+#librarías
+#install.packages(c("pacman","seasonal",tidyverse","dplyr","readxl","janitor","ggplot2","lubridate","tseries","tsibble", "aTSA","feasts"))
+
+pacman::p_load(
+  tidyverse,
+  dplyr,#Transformación de variables
+  readxl,#Importar datos de excel
+  janitor,#Para tablas
+  ggplot2,#Gráficos
+  lubridate,#Trabajar con Fechas
+  tseries,#Pruebas del modelo
+  tsibble,#Para trabajar con datos de series de tiempo
+  forecast,#Para pronostico
+  aTSA,#ajustar modelos de series de tiempo
+  feasts,#Complemento para autoplot,
+  seasonal
+)
+```
+
+# Importación y Limpieza de los Datos
+
+La información empleada es del Instituto Nacional de Estadística (INE). Para el propósito se emplea la inflación  a doce meses por mes.
+
+Como la información obtenida no viene en formato de tabla normalizada, se procederá a hacer las transformaciones pertinentes para lograr obtener una tabla normalizada. Ademas solo se empleara información a partir del año 2015.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Importar la base de datos
+Infl <- read_excel("~/Portafolio_R/Inflación/Infl_Base.xlsx", sheet="CUADRO Nº 1.4 VAR 12 MESES", skip = 4)
+
+#Filtro de observaciones y anulación de la dinamización
+Infl <-  Infl %>% 
+  filter(row_number()%in%c(seq(2,13))) %>% 
+  pivot_longer(cols = !MES, names_to = "Años",values_to = "Inflación")
+
+#Filtrar para años mayores a 2015
+Infl <- Infl %>% 
+  mutate(Años=as.integer(Años)) %>% 
+  filter(Años>=2015)
+
+#Transformación de Fecha
+Infl <- Infl %>% 
+  mutate(fecha=paste0("01/",MES,"/",Años),
+         Fecha=as.Date(fecha, format="%d/%B/%Y")) %>% 
+  select(-fecha)
+
+head(Infl,7)
+```
+
+# Visualización de las Serie
+
+En esta sección se gráfica la serie con el objetivo de detectar patrones o identificar cualquier observación inusual. 
+
+## Gráfico de la Inflación
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+ggplot(Infl, aes(x=Fecha, y=Inflación))+
+  geom_line(color="#539CBA", size=1)+
+  theme_bw()+
+  labs(title="Inflación Mensual de Bolivia, 2015-2024", subtitle = "(%)", x=NULL, y="Tasa")+
+  scale_x_date(date_breaks = "year", date_labels = "%Y")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+    axis.text = element_text(size=14, color="gray12")
+  )
+```
+
+
+## Evolución de la Distribución de la Inflación Anual
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl %>% 
+  mutate(Año_1=as.character(year(Fecha))) %>%  
+ggplot(aes(x=Año_1, y=Inflación, group=Año_1))+
+  geom_boxplot(color="#539CBA", alpha=.7,size=1, show.legend = F)+
+  geom_jitter(stat="identity",color="midnightblue", alpha=.7,size=1.5)+
+  theme_bw()+
+    labs(title="Evolución de la Distribución de la Inflación Anual, 2015-2024", subtitle = "(%)", x=NULL, y="Tasa")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+    axis.text= element_text( color="gray12",size=14),
+  )
+```
+
+## Inflación Promedio Anual
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl %>% 
+  mutate(Años_1=as.character(year(Fecha))) %>% 
+  group_by(Años_1) %>% 
+  summarise(Inf_Pro=mean(Inflación)) %>% 
+  ggplot(aes(x=Años_1, y=Inf_Pro))+
+  geom_bar(stat = "identity", fill="#539CBA", alpha=.7, width = .7)+
+  theme_classic()+
+  geom_text(aes(label=paste(round(Inf_Pro,2),"%")), vjust=-.5, hjust="center",size=14, size.unit = "pt")+
+  labs(title="Inflación Promedio Anual, 2015-2024", subtitle = "(%)",x=NULL)+
+  scale_y_continuous(limits = c(0, 6), expand = c(0, 0))+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+    axis.line.y = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(color="black", size=14)
+  )
+```
+
+
+# Conversión a Series de Tiempo y Analísis 
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl_ts <- Infl %>% 
+  select(-c(Años,MES)) %>%
+  mutate(Fecha=yearmonth(Fecha)) %>% #Variable tiempo
+  as_tsibble(
+    index = Fecha#Index
+  )
+head(Infl_ts,7)
+```
+
+
+## Análisis de Estacionalidad
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl_ts %>% 
+  gg_season(Inflación, labels = "both", size=1)+
+  theme_bw()+
+  labs(title="Inflación Mensual de Bolivia, 2015-2024", subtitle = "(%)")+
+  coord_cartesian(expand = TRUE)+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+    axis.text= element_text( color="gray12",size=14)
+  )
+
+```
+
+
+## Gráfico de subseries estacionales
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl_ts %>% 
+  gg_subseries(Inflación)+#La media por Mes
+  theme_bw()+
+  labs(title="Inflación Mensual de Bolivia, 2015-2024", subtitle = "(%)")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    axis.text.x = element_text(angle = 90),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )
+```
+
+De acuerdo al análisis, no existe un efecto estacional marcado en la serie. Pero por rutina se procederá a desestacionalizar para eliminar algunos picos.
+
+## Desestacionalización
+
+Para la desestacionalización se empleará la técnica creada por la Oficina del Censo de USA X-13ARIMA-SEATS.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+
+Infl_ts<- Infl_ts %>% 
+  model(x11 = X_13ARIMA_SEATS(Inflación ~ x11())) %>% 
+  components() %>%select(-.model)
+
+
+Infl_ts %>% 
+  ggplot(aes(x = as_date(Fecha))) +
+  geom_line(aes(y = Inflación, colour = "Inflación"), size=0.7) +
+  geom_line(aes(y = season_adjust,colour = "season_adjust"), size=0.7) +
+  geom_line(aes(y = trend, colour = "trend"), size=0.7) +
+  scale_x_date(date_breaks = "year", date_labels = "%Y")+
+  scale_colour_manual(
+    values = c("#539CBA", "midnightblue", "#D55E00"),
+    breaks = c("Inflación", "season_adjust", "trend"))+
+  theme_bw()+
+  labs(title="Descoposicón de la Inflación Mensual de Bolivia, 2015-2024", subtitle = "(%)", x=NULL, y="%")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    legend.position='top', 
+    legend.justification='left',
+    legend.direction='horizontal',
+    legend.title = element_blank(),
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+    legend.location = "plot",
+    axis.text= element_text( color="gray12",size=14)
+  )
+```
+
+# Detección del Orden de Integración (d)
+
+## Método Informal
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl_ts %>% 
+  PACF(season_adjust, lag_max = 24) %>% 
+  autoplot()+
+  theme_bw()+
+  labs(title = "Función de Autucorrelación Parcial")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA",size=18),
+    legend.position='top', 
+    legend.justification='left',
+    legend.direction='horizontal',
+    legend.title = element_blank(),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )
+
+Infl_ts %>% 
+  ACF(season_adjust, lag_max = 24) %>% 
+  autoplot()+
+  theme_bw()+
+  labs(title = "Función de Autucorrelación")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    legend.position='top', 
+    legend.justification='left',
+    legend.direction='horizontal',
+    legend.title = element_blank(),
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+  )
+```
+
+## Método Formal
+
+a) Prueba de Dickey Fuller Aumentada
+
+Ho: La serie tiene raíz unitaria.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#ADF
+Infl_ts %>% 
+  features(season_adjust, adf.test)
+```
+
+
+b) Prueba de Philip 
+
+Ho: La serie no es estacionaria o tiene raíz unitaria.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#P-P
+Infl_ts %>% 
+  features(season_adjust, pp.test)
+```
+
+
+## Diferenciación
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Diferenciar
+Infl_ts %>% 
+  ggplot(aes(x=Fecha, y=difference(season_adjust)))+
+  geom_line()+
+  theme_bw()+
+  labs(title="Diff de la Inflación Mensual de Bolivia, 2015-2024", subtitle = "(%)")+
+  geom_hline(yintercept = 0, size=.5)+
+  scale_x_yearmonth(date_breaks = "1 year", date_labels = "%Y")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )
+```
+
+De acuerdo con las pruebas formales e informales, se evidencia que la serie es integrada de orden (1).
+
+# Identificar los Procesos AR(p) y MA(q)
+
+De la función de autocorrelación parcial se obtiene el orden del modelo AR(p) y de la función de autocorrelación, el orden del modelo MA(q).
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl_ts %>% 
+  ACF(difference(season_adjust), lag_max = 24) %>% 
+  autoplot()+
+  theme_bw()+
+  labs(title="Función de autocorrelación")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )
+```
+
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Infl_ts %>% 
+  PACF(difference(season_adjust), lag_max = 24) %>% 
+  autoplot()+
+  theme_bw()+
+  labs(title="Función de autocorrelación Parcial")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )
+```
+
+De acuerdo a las gráficas, sugiere un modelo ARIMA(3,1,1), aunque da la percepción de ser un modelo estacional dado que el pico en el rezago 12 es significativo, es decir, ARIMA(3,1,1)S(1,0,1)[12].
+
+# Estimar el Modelo ARIMA(pdq)
+
+Ahora se estimarán los modelos candidatos posibles.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Modelos
+Model <- Infl_ts %>% 
+  model(
+    arima011 = fable::ARIMA(season_adjust~ pdq(0,1,1)),
+    arima310 = fable::ARIMA(season_adjust ~ pdq(3,1,0)),
+    arima311 = fable::ARIMA(season_adjust~ pdq(3,1,1)),
+    #Estacionales
+    arima_311S = fable::ARIMA(season_adjust~ pdq(3,1,1)+PDQ(1,0,1)),
+    arima_011S = fable::ARIMA(season_adjust~ pdq(0,1,1)+PDQ(0,0,1)),
+    arima_310S = fable::ARIMA(season_adjust~ pdq(3,1,0)+PDQ(1,0,0)),
+  ) 
+```
+
+
+Para la elección del mejor modelo se hará uso de los criterios de información: Elegir el modelo cuyos estadísticos o criterios de información se minimicen y, para el caso de la razón de verosimilitud (LL), elegir el modelo cuyo estadístico o criterio de razón de verosimilitud se maximice (mayor valor).
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Encontrar el mejor modelo 
+glance(Model) %>% arrange(AICc) %>% select(.model:BIC)
+```
+
+De acuerdo con los resultados, el mejor modelo es el ARIMA(3,1,0), dado que más de un criterio los respalda.
+
+
+## Gráfico de los Residuos
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Model %>% 
+  select(arima310) %>% 
+  gg_tsresiduals()+
+  labs(title="Residuos")
+  
+```
+
+## Test de Ruido Blanco (ljung_box)
+
+Ho: La serie es Ruido blanco.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+augment(Model) %>% 
+  filter(.model=="arima310") %>% 
+  features(.innov, ljung_box, lag = 36, dof = 6)
+```
+
+Aunque no se rechaza la H0, existe presencia de valores atípicos.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+resid <- augment(Model)
+#Gráficos de los residuos
+resid %>% 
+  filter(.model=="arima310") %>% 
+  ggplot(aes(x=Fecha,y=.innov))+
+  geom_line()+
+  geom_hline(yintercept = 0)+
+  labs(title = "Residuos del Modelo")+
+  theme_bw()+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )
+```
+
+## Detección de Oulier
+
+La técnica empleada para detectar outlier será el diagrama de caja.
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Detectando oulier en resid
+data <- augment(Model)%>% 
+  filter(.model=="arima310")
+Oulier <- boxplot(data$.innov)$out
+Oulier 
+```
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Ubicar los outliers
+data %>% 
+  filter(.innov%in%Oulier)
+```
+
+
+Los valores atípicos u outliers se encuentran en la fecha __dic/2019__ y __Agos/2024__
+
+## Creación de dummys
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Agregamos dummies a la data ts
+Infl_ts <- Infl_ts %>% 
+  mutate(dumm_dic19=ifelse(as.character(Fecha)=="2019 dic.",1,0),
+         dumm_ago24=ifelse(as.character(Fecha)=="2024 ago.", 1,0))
+
+ggplot(Infl_ts,aes(x=Fecha))+
+  geom_line(aes(y=dumm_dic19), color="red")+
+  geom_line(aes(y=dumm_ago24))+
+  theme_bw()
+```
+
+# Modelo Corregido
+
+```{r message=FALSE, warning=FALSE, cache=FALSE}
+#Modelo Corregido
+Model_cor <- Infl_ts %>% 
+  model(
+    arima011 = fable::ARIMA(season_adjust~ pdq(0,1,1)+dumm_dic19+dumm_ago24),
+    arima310 = fable::ARIMA(season_adjust ~ pdq(3,1,0)+dumm_dic19+dumm_ago24),
+    arima311 = fable::ARIMA(season_adjust~ pdq(3,1,1)+dumm_dic19+dumm_ago24),
+    auto = fable::ARIMA(season_adjust)
+  ) 
+
+#Encontrar el mejor modelo 
+glance(Model_cor) %>% arrange(AICc) %>% select(.model:BIC)
+```
+
+El mejor modelo es el ARIMA(3,1,1)
+
+## Gráfico de Residuos
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Model_cor %>% 
+  select(arima311) %>% 
+  gg_tsresiduals()
+```
+
+## Test de Ruido Blanco
+
+```{r}
+augment(Model_cor) %>% 
+  filter(.model=="arima311") %>% 
+  features(.innov, ljung_box, lag = 36, dof = 6)
+```
+
+# Comparación de los modelos (Corregido y el Simple)
+
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+Model_Sim <- glance(Model) %>% arrange(AICc) %>% select(.model:BIC) %>% 
+  filter(.model=="arima310")
+
+Model_Core <- glance(Model_cor) %>% arrange(AICc) %>% select(.model:BIC) %>%
+              filter(.model=="arima311")
+#El mejor modelo es el Arima corregido
+#Pruebas ex
+bind_rows(Model_Sim, Model_Core) 
+```
+
+De acuerdo al AIC y log_lik, el modelo final es el ARIMA(3,1,1).
+
+
+# Pronóstico
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Creación de una data para el Pronostico
+Data <- new_data(Infl_ts, 12) |>
+  mutate(
+    dumm_ago24 = 0,#Las variables exogenas
+    dumm_dic19= 0,
+    )
+
+#Pronostico (Data)
+forecast(Model_cor,Data) |>
+  filter(.model=="arima311") %>% 
+  hilo()
+
+```
+
+
+
+## Gráfico de Pronóstico de la Inflación 
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Gráfico
+forecast(Model_cor,Data) %>% 
+  filter(.model=="arima311") %>% 
+  autoplot(Infl_ts, color=alpha("#539CBA",.5))+
+  theme_bw()+
+  scale_x_yearmonth(date_breaks = "1 year", date_labels = "%Y")+
+  labs(title="Pronóstico de la Inflación de Bolivia, 2015-2025", subtitle = "(%)",
+       x=NULL, y="%")+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    legend.position='top', 
+    legend.justification='left',
+    legend.direction='horizontal',
+    plot.caption.position = "plot",
+    plot.title.position = "plot",
+    legend.location = "plot",
+    axis.text= element_text( color="gray12",size=14)
+  )
+```
+
+## Inflación Promedio Anual
+
+```{r warning=FALSE, cache=FALSE, message=FALSE}
+#Pronostico de la Inflación anual promedio
+Data2 <- bind_rows(Infl_ts,
+          forecast(Model_cor,Data) %>% 
+            filter(.model=="arima311") %>%
+            hilo())
+Data2 %>% 
+  mutate(Años=as.character(year(Fecha))) %>% 
+  group_by(Años) %>% 
+  as_tibble() %>% 
+  select(-Fecha) %>% 
+  summarise(Infl=mean(Inflación, na.rm = TRUE), Pron=mean(.mean, na.rm=TRUE)) %>%
+  mutate(is_2025=ifelse(Años==2025, TRUE, FALSE)) %>% 
+  ggplot(aes(x=Años,y=Infl, fill=is_2025))+
+  geom_bar(stat = "identity", show.legend = F)+
+  geom_bar(aes(y=Pron), stat = "identity", show.legend = F)+
+  scale_fill_manual(breaks = c(FALSE, TRUE), values = c("#BAD1D6","#539CBA"))+
+  coord_cartesian(expand = FALSE,
+                  ylim = c(0,8))+
+  theme_classic()+
+  theme(
+    plot.title = element_text(face="bold", color = "#539CBA", size=18),
+    axis.line.y = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.x = element_text(size=14, color="gray12"),
+    axis.text.y = element_blank(),
+    plot.caption.position = "plot",
+    plot.title.position = "plot"
+  )+
+  geom_text(aes(y=Pron,label=ifelse(is_2025,paste(round(Pron,2),"%"),NA)), vjust=-.5, hjust="center", color="#539CBA",size=12, size.unit = "pt")+
+  geom_text(aes(label=paste(round(Infl,2),"%")), vjust=-.5, hjust="center", size=12, size.unit = "pt")+
+  labs(title="Inflación Promedio Anual, 2015-2025", subtitle = "(%)",x=NULL,y=NULL)
+
+```
+
+
+# Conclusión
+
+De acuerdo a los datos y la aplicación de la metodología de Box-Jenkins (1976):
+
+* El modelo ARIMA empleado es el ARIMA(3,1,1) corregido por la influencia de valores atípicos.
+
+* La inflación promedio pronosticada para el año 2025 alcanzará el 7.48%, 2.4 pp por encima del promedio registrado en 2024.
+
+* Además, de acuerdo con los datos, la inflación en el último semestre del año 2024 presentó una dispersión marcada, terminando el año con una inflación de `r round(Infl %>% filter(MES=="Diciembre" & Años==2024) %>% select(Inflación),2)`%
+
+
