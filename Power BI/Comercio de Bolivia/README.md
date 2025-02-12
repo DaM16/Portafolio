@@ -43,3 +43,5 @@ Mientras que los 5 principales países en 2024 de donde importa Bolivia son Chin
 
 ![IMP](https://github.com/DaM16/Portafolio/blob/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Power%20BI/Comercio%20de%20Bolivia/Dash_7.png
 )
+
+Para mas detalle [https://app.powerbi.com/view?r=eyJrIjoiN2ZiNGJiOTAtNTU4OC00NzFiLTljNTAtNDE1ODdiMTc2ZDNmIiwidCI6ImE4MWVlZGRmLTM4NzctNDY4Yy04OWM2LTE1NDZhZjY5NTgwNCIsImMiOjR9](https://app.powerbi.com/view?r=eyJrIjoiN2ZiNGJiOTAtNTU4OC00NzFiLTljNTAtNDE1ODdiMTc2ZDNmIiwidCI6ImE4MWVlZGRmLTM4NzctNDY4Yy04OWM2LTE1NDZhZjY5NTgwNCIsImMiOjR9)
