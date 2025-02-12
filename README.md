@@ -1,24 +1,16 @@
 # Portafolio
-Proyectos de análisis de datos utilizando: **Power BI** y __R__.
 
-Este portafolio está comprendido por un proyecto realizado en R y Power BI con información real de la economía boliviana y algunos datos ficticios para el análisis empresarial.
+Este portafolio está comprendido por un proyecto realizado en __R__ y __Power BI__ con información real de la economía boliviana y algunos datos ficticios para el análisis empresarial.
 
-Consta de 4 proyectos:
+El portafolio consta de 4 proyectos:
 
-## 1.- Indicadores Laborales en R
++ Análisis en R:
+  - [Pronóstico de la Inflación en Bolivia, 2025](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Inidcadores%20Laborales)
+  - [Análisis de los Indicadores Laborales de Bolivia, 2023](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Pronostico%20de%20la%20Inflaci%C3%B3n)
 
-En este proyecto se empleó información de la Encuesta de Hogares del Instituto Nacional de Estadística del Estado Plurinacional de Bolivia. [(INE,2024)](https://anda.ine.gob.bo/index.php/home).
-[]()
-entre las principales conclusiones:
-
-Para mayor detalles el proyecto se encuntra alojado en [**R**Pubs] (https://rpubs.com/DaM16/1270934). Y la informacion se encutra en;
++ Análisis en Power BI:
+  - [Análisis del Comercio Internacional de Bolivia, 2020-2024](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Power%20BI/Comercio%20de%20Bolivia)
+  - [Ventas y Descuentos en Líneas](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Power%20BI/Ventas%20y%20Descuentos)
 
 
-## 1.2.- Pronóstico de la Inflación en Bolivia para Año el 2025.
-
-## 1.3.- Análisis del Comercio Internacional de Bolivia en Power BI.
-
-## 1.4.- Análisis de Ventas y Descuentos
-
-Este trabajo se empleó con datos provenientes de un examen del curso de A2 Capacitación para Excel de Green Belt.
 
