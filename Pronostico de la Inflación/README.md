@@ -23,6 +23,8 @@ De acuerdo a los datos y la aplicación de la metodología de Box-Jenkins (1976)
 
 * Además, de acuerdo con los datos, la inflación en el último semestre del año 2024 presentó una dispersión marcada, terminando el año con una inflación de 9.97%
 
+Para mayores detalles el proyecto se encuentra alojado en [ R Pubs](https://rpubs.com/DaM16/1270934)
+
 
 
 
