@@ -9,7 +9,7 @@ En este proyecto se analizan las exportaciones, importaciones y saldo comercial 
 
 Además, se realizan cálculos de las tasas de crecimiento, participación, los 30 productos más importados y exportados de Bolivia, los principales socios comerciales de Bolivia, etc.
 
-+ [Análisis de Ventas y Descuentos](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Power%20BI/Ventas%20y%20Descuentos)
++ [Análisis de Ventas y Descuentos](https://github.com/DaM16/Portafolio/tree/main/Power%20BI/Ventas%20y%20Descuentos)
 
 Es un proyecto con datos provenientes de un examen del curso de A2 Capacitación para Excel de Green Belt.
 
