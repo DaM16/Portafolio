@@ -31,12 +31,10 @@ De acuerdo al análisis, se encontró que:
 
 +  El sector de Comercio junto con el sector de Transporte y Almacenamiento son los sectores con mayor cambio negativo durante un año, dado que disminuye la participación de la población ocupada durante el año. Mientras que el sector manufacturero y otras ramas de actividad son los que presentan un cambio positivo dado que la participación de la población ocupada es mayor al final del año.
 
-![Seg]()
-
 + De las personas que se declararon indígenas, la mayor proporción se encuentra empleada en actividades agrícolas y de comercio. Mientras que los que no pertenecen a ninguna etnia originaria son personas que se encuentran ocupadas también en comercio, además de otras ramas de actividad.
 
 ![Sankey](https://github.com/DaM16/Portafolio/blob/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Inidcadores%20Laborales/Reporte/G4.png)
 
-Para mayor detalles el proyecto se encuntra alojado en [**R**Pubs] (https://rpubs.com/DaM16/1270934). Y la informacion se encutra en;
+Para mayor detalles el proyecto se encuntra alojado en [**R**Pubs] (https://rpubs.com/DaM16/1270934).
 
 
