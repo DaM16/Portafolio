@@ -8,7 +8,7 @@ El portafolio consta de 4 proyectos:
   
   - [Pronóstico de la Inflación en Bolivia, 2025](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Pronostico%20de%20la%20Inflaci%C3%B3n)
     
-  - [Análisis de los Indicadores Laborales de Bolivia, 2023](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Inidcadores%20Laborales)
+  - [Análisis de los Indicadores Laborales de Bolivia, 2023](https://github.com/DaM16/Portafolio/tree/main/Inidcadores%20Laborales)
   
 + Análisis en Power BI:
   
