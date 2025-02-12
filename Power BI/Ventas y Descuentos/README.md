@@ -11,7 +11,7 @@ catálogo de productos en 2 grandes rubros: piezas para Gaming y piezas para Ofi
 Están pensando otorgar descuentos 2020. Tu labor analizar las ventas, costos y ganancias para el 2018-2019. Con lo anterior se podrá saber si los descuentos son un proyecto viable y rentable.
 
 ## Modelo de Datos
-![]()
+![](https://github.com/DaM16/Portafolio/blob/39ea2fa8fe954855970347351413f77dfb45e989/Power%20BI/Ventas%20y%20Descuentos/Mod_Datos.png)
 
 ## Análisis de Ventas
 
