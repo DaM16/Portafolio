@@ -10,7 +10,7 @@ Etapa 2: Unión y limpieza de la base de datos: Dado que son información separa
 
 Etapa 3: Construcción del modelo de datos: Consta de dos tablas de hechos (Exportación e Importación) y una tabla calendario, además de tablas de parámetros.
 
-![MD]()
+![MD](https://github.com/DaM16/Portafolio/blob/680cfc3fc3e48812ba6f41d15f4d40dc86aff684/Power%20BI/Comercio%20de%20Bolivia/Modelos%20de%20Datos%20.png)
 
 Etapa 4: Cálculo de los indicadores y elaboración de reportes.
 
