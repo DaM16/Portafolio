@@ -35,6 +35,6 @@ De acuerdo al análisis, se encontró que:
 
 ![Sankey](https://github.com/DaM16/Portafolio/blob/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Inidcadores%20Laborales/Reporte/G4.png)
 
-Para mayor detalles el proyecto se encuntra alojado en [**R**Pubs] (https://rpubs.com/DaM16/1270934).
+Para mayor detalles el proyecto se encuntra alojado en [**R**Pubs](https://rpubs.com/DaM16/1270952).
 
 
