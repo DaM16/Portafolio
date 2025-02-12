@@ -3,7 +3,7 @@
 Aqui se presentan dos proyectos de practica de uso de Power BI:
 
 
-+ [Análisis del Comercio Internacional de Bolivia en Power BI](https://github.com/DaM16/Portafolio/tree/65ee3caa7b28dc4a7fbec13b9a867b6598054acd/Power%20BI/Comercio%20de%20Bolivia).
++ [Análisis del Comercio Internacional de Bolivia en Power BI](https://github.com/DaM16/Portafolio/tree/main/Power%20BI/Comercio%20de%20Bolivia).
 
 En este proyecto se analizan las exportaciones, importaciones y saldo comercial de Bolivia durante el periodo 2020-2024.
 
